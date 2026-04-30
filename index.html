@@ -3,114 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тотализатор</title>
+    <title>Тотализатор — Ставки на событие</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
-        .outcome { display: inline-block; width: 45%; margin: 5px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; }
-        .outcome.selected { background-color: #d1e7dd; border-color: #0f5132; }
-        .coeff { font-size: 24px; font-weight: bold; color: #0a58ca; }
-        .pool { font-size: 14px; color: #6c757d; }
-        input { padding: 8px; margin: 10px; width: 200px; }
-        button { padding: 10px 20px; background-color: #198754; color: white; border: none; border-radius: 5px; cursor: pointer; }
-        .error { color: red; margin-top: 10px; }
-        .success { color: green; }
-        #stats { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background: #f5f5f5;
+        }
+        h1, h2 { color: #333; }
+        .event { background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.25rem; font-weight: bold; }
+        select, input { padding: 0.4rem; font-size: 1rem; width: 100%; max-width: 300px; box-sizing: border-box; }
+        button { padding: 0.5rem 1.2rem; font-size: 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #b02a37; }
+        .coefficients { margin-top: 2rem; background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        th, td { padding: 0.6rem; border: 1px solid #ddd; text-align: left; }
+        th { background: #f0f0f0; }
+        .bets-list { margin-top: 2rem; background: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .bet-item { display: flex; justify-content: space-between; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid #eee; }
+        .bet-item:last-child { border-bottom: none; }
+        .margin-input { width: 80px; }
+        .small { font-size: 0.85rem; color: #666; }
     </style>
 </head>
 <body>
-    <h1>⚽ Событие: Команда А vs Команда Б</h1>
-    <p>Маржа букмекера: <span id="marginValue">—</span>%</p>
-    
-    <div>
-        <div class="outcome" data-outcome="A">
-            <h2>Победа А</h2>
-            <div>Коэффициент: <span id="coeffA" class="coeff">—</span></div>
-            <div class="pool">Банк: <span id="poolA">0</span> ₽</div>
+    <h1>🏆 Тотализатор</h1>
+
+    <div class="event">
+        <h2>📅 Событие: Финал ЧМ-2026 — Бразилия vs Аргентина</h2>
+        <p>Выберите категорию и сделайте ставку.</p>
+
+        <div class="form-group">
+            <label for="poolSelect">Категория (пул)</label>
+            <select id="poolSelect">
+                <option value="">-- Выберите категорию --</option>
+            </select>
         </div>
-        <div class="outcome" data-outcome="B">
-            <h2>Победа Б</h2>
-            <div>Коэффициент: <span id="coeffB" class="coeff">—</span></div>
-            <div class="pool">Банк: <span id="poolB">0</span> ₽</div>
+
+        <div class="form-group">
+            <label for="outcomeSelect">Исход</label>
+            <select id="outcomeSelect" disabled>
+                <option value="">-- Сначала выберите категорию --</option>
+            </select>
         </div>
+
+        <div class="form-group">
+            <label for="stakeInput">Сумма ставки (руб.)</label>
+            <input type="number" id="stakeInput" min="1" placeholder="100" disabled>
+        </div>
+
+        <button id="placeBetBtn" disabled>Сделать ставку</button>
     </div>
-    
-    <div style="margin-top: 20px;">
-        <label>Сумма ставки (₽): </label>
-        <input type="number" id="betAmount" min="1" step="1" value="100">
-        <br>
-        <button id="placeBetBtn">Сделать ставку</button>
+
+    <div class="coefficients">
+        <h2>📊 Текущие коэффициенты</h2>
+        <label>Маржа тотализатора: <input type="number" id="marginInput" class="margin-input" value="10" min="0" max="100" step="0.1"> %</label>
+        <table id="coeffTable">
+            <thead>
+                <tr>
+                    <th>Категория</th>
+                    <th>Исход</th>
+                    <th>Сумма ставок</th>
+                    <th>Коэффициент</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <p class="small">Общий банк по всем пулам: <span id="totalBank">0</span> руб. | К выплате (за вычетом маржи): <span id="payoutBank">0</span> руб.</p>
     </div>
-    
-    <div id="stats">
-        <h3>Статистика</h3>
-        <p>Общий банк: <span id="totalPool">0</span> ₽</p>
-        <p>Ваш текущий ID: <span id="userIdDisplay">—</span></p>
+
+    <div class="bets-list">
+        <h2>📋 Ваши ставки</h2>
+        <button id="clearBetsBtn" class="danger">Очистить все ставки</button>
+        <div id="betsContainer" style="margin-top: 0.5rem;">Ставок пока нет.</div>
     </div>
-    <div id="message"></div>
 
     <script>
-      	const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqJiAhi7cO872V21zrAp1ug8hG8IBeAIslUUcr2NrS0uiJ7wXCNXB6zYxbAoo5Zy_UNw/exec'; // ваш URL
-	const PROXY = 'https://cors-anywhere.herokuapp.com/';
-	const API_URL = PROXY + SCRIPT_URL;
-        let userId = localStorage.getItem('userId');
-        if (!userId) {
-            userId = 'user_' + Math.random().toString(36).substr(2, 8);
-            localStorage.setItem('userId', userId);
-        }
-        document.getElementById('userIdDisplay').innerText = userId;
-        
-        let selectedOutcome = 'A';
-        document.querySelectorAll('.outcome').forEach(div => {
-            div.addEventListener('click', () => {
-                document.querySelectorAll('.outcome').forEach(d => d.classList.remove('selected'));
-                div.classList.add('selected');
-                selectedOutcome = div.dataset.outcome;
-            });
-        });
-        document.querySelector('.outcome[data-outcome="A"]').classList.add('selected');
-        
-        async function loadState() {
-            try {
-                const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('Ошибка загрузки');
-                const state = await response.json();
-                document.getElementById('coeffA').innerText = state.coeffA;
-                document.getElementById('coeffB').innerText = state.coeffB;
-                document.getElementById('poolA').innerText = state.poolA;
-                document.getElementById('poolB').innerText = state.poolB;
-                document.getElementById('totalPool').innerText = state.total;
-                document.getElementById('marginValue').innerText = (state.margin || 10).toFixed(0);
-            } catch (err) {
-                console.error(err);
-                document.getElementById('message').innerHTML = '<span class="error">Ошибка соединения с сервером</span>';
-            }
-        }
-        
-        async function placeBet() {
-            const amount = parseFloat(document.getElementById('betAmount').value);
-            if (isNaN(amount) || amount <= 0) {
-                alert('Введите сумму больше 0');
-                return;
-            }
-            const url = `${API_URL}?userId=${encodeURIComponent(userId)}&outcome=${selectedOutcome}&betAmount=${amount}`;
-            try {
-                const resp = await fetch(url);
-                const result = await resp.json();
-                if (result.success) {
-                    alert(`✅ Ставка ${amount}₽ на исход ${selectedOutcome} принята! Коэффициент: ${selectedOutcome === 'A' ? result.state.coeffA : result.state.coeffB}`);
-                    loadState();
-                } else {
-                    alert('❌ Ошибка: ' + (result.error || 'неизвестная'));
-                }
-            } catch (err) {
-                console.error('placeBet error:', err);
-                alert('Не удалось отправить ставку. Проверьте консоль (F12)');
-            }
-        }
+        (function() {
+            // ---------- КОНФИГУРАЦИЯ: событие, пулы и их исходы ----------
+            const EVENT = {
+                name: 'Финал ЧМ-2026: Бразилия vs Аргентина',
+                pools: [
+                    {
+                        id: 'match_result',
+                        name: 'Исход матча (основное время)',
+                        outcomes: ['Победа Бразилии', 'Ничья', 'Победа Аргентины']
+                    },
+                    {
+                        id: 'exact_score',
+                        name: 'Точный счёт',
+                        outcomes: ['1:0', '2:0', '2:1', '0:0', '1:1', '0:1', '0:2', '1:2', 'другой']
+                    }
+                ]
+            };
 
-        document.getElementById('placeBetBtn').addEventListener('click', placeBet);
-        loadState();
-        setInterval(loadState, 5000);
+            // ---------- ХРАНИЛИЩЕ СТАВОК (localStorage) ----------
+            const STORAGE_KEY = 'totalizator_bets';
+
+            function loadBets() {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                return raw ? JSON.parse(raw) : [];
+            }
+
+            function saveBets(bets) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(bets));
+            }
+
+            let bets = loadBets(); // текущий массив ставок
+
+            // ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
+            function getMarginPercent() {
+                return parseFloat(document.getElementById('marginInput').value) || 0;
+            }
+
+            // Расчёт суммарных ставок по пулам и исходам
+            function calculateSums() {
+                const margin = getMarginPercent() / 100;
+                const poolSums = {};   // { poolId: total }
+                const outcomeSums = {}; // { `${poolId}::${outcome}`: sum }
+
+                // Инициализация
+                EVENT.pools.forEach(pool => {
+                    poolSums[pool.id] = 0;
+                    pool.outcomes.forEach(outcome => {
+                        outcomeSums[`${pool.id}::${outcome}`] = 0;
+                    });
+                });
+
+                bets.forEach(bet => {
+                    if (poolSums.hasOwnProperty(bet.poolId)) {
+                        poolSums[bet.poolId] += bet.stake;
+                        const key = `${bet.poolId}::${bet.outcome}`;
+                        if (outcomeSums.hasOwnProperty(key)) {
+                            outcomeSums[key] += bet.stake;
+                        }
+                    }
+                });
+
+                return { poolSums, outcomeSums, margin };
+            }
+
+            // ---------- ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ----------
+            function updateUI() {
+                const { poolSums, outcomeSums, margin } = calculateSums();
+
+                // Таблица коэффициентов
+                const tbody = document.querySelector('#coeffTable tbody');
+                tbody.innerHTML = '';
+
+                let totalAllBank = 0;
+                let totalPayout = 0;
+
+                EVENT.pools.forEach(pool => {
+                    const poolTotal = poolSums[pool.id];
+                    totalAllBank += poolTotal;
+                    const payoutPool = poolTotal * (1 - margin);
+                    totalPayout += payoutPool;
+
+                    pool.outcomes.forEach(outcome => {
+                        const key = `${pool.id}::${outcome}`;
+                        const outcomeSum = outcomeSums[key];
+                        let coeff = 0;
+                        if (outcomeSum > 0 && poolTotal > 0) {
+                            coeff = payoutPool / outcomeSum;
+                        }
+                        // Если ставок на исход нет, коэффициент не определён
+                        const coeffDisplay = (outcomeSum > 0 && coeff > 0) ? coeff.toFixed(2) : '—';
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${pool.name}</td>
+                            <td>${outcome}</td>
+                            <td>${outcomeSum} руб.</td>
+                            <td>${coeffDisplay}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                });
+
+                document.getElementById('totalBank').textContent = totalAllBank;
+                document.getElementById('payoutBank').textContent = totalPayout.toFixed(2);
+
+                // Список ставок
+                const container = document.getElementById('betsContainer');
+                if (bets.length === 0) {
+                    container.innerHTML = 'Ставок пока нет.';
+                } else {
+                    container.innerHTML = bets.map((bet, index) => {
+                        const pool = EVENT.pools.find(p => p.id === bet.poolId);
+                        const poolName = pool ? pool.name : bet.poolId;
+                        return `<div class="bet-item">
+                            <span>${poolName} → <strong>${bet.outcome}</strong> — ${bet.stake} руб. <span class="small">(${new Date(bet.time).toLocaleString()})</span></span>
+                            <button class="danger" data-delete-index="${index}">Удалить</button>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            // Обработчик удаления ставки через делегирование
+            document.getElementById('betsContainer').addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON' && e.target.dataset.deleteIndex !== undefined) {
+                    const index = parseInt(e.target.dataset.deleteIndex, 10);
+                    if (index >= 0 && index < bets.length) {
+                        bets.splice(index, 1);
+                        saveBets(bets);
+                        updateUI();
+                    }
+                }
+            });
+
+            // Кнопка очистки всех ставок
+            document.getElementById('clearBetsBtn').addEventListener('click', () => {
+                if (confirm('Удалить все ставки? Это действие нельзя отменить.')) {
+                    bets = [];
+                    saveBets(bets);
+                    updateUI();
+                }
+            });
+
+            // Реакция на изменение маржи
+            document.getElementById('marginInput').addEventListener('input', updateUI);
+
+            // ---------- ФОРМА СТАВКИ (зависимые списки) ----------
+            const poolSelect = document.getElementById('poolSelect');
+            const outcomeSelect = document.getElementById('outcomeSelect');
+            const stakeInput = document.getElementById('stakeInput');
+            const placeBetBtn = document.getElementById('placeBetBtn');
+
+            // Заполняем список категорий
+            EVENT.pools.forEach(pool => {
+                const option = document.createElement('option');
+                option.value = pool.id;
+                option.textContent = pool.name;
+                poolSelect.appendChild(option);
+            });
+
+            // Обновление списка исходов при смене категории
+            poolSelect.addEventListener('change', () => {
+                const poolId = poolSelect.value;
+                outcomeSelect.innerHTML = '<option value="">-- Выберите исход --</option>';
+                if (poolId) {
+                    const pool = EVENT.pools.find(p => p.id === poolId);
+                    pool.outcomes.forEach(outcome => {
+                        const option = document.createElement('option');
+                        option.value = outcome;
+                        option.textContent = outcome;
+                        outcomeSelect.appendChild(option);
+                    });
+                    outcomeSelect.disabled = false;
+                    stakeInput.disabled = false;
+                } else {
+                    outcomeSelect.disabled = true;
+                    stakeInput.disabled = true;
+                }
+                checkForm();
+            });
+
+            outcomeSelect.addEventListener('change', checkForm);
+            stakeInput.addEventListener('input', checkForm);
+
+            function checkForm() {
+                const poolSelected = poolSelect.value !== '';
+                const outcomeSelected = outcomeSelect.value !== '';
+                const stake = parseInt(stakeInput.value, 10);
+                placeBetBtn.disabled = !(poolSelected && outcomeSelected && stake > 0);
+            }
+
+            // Размещение ставки
+            placeBetBtn.addEventListener('click', () => {
+                const poolId = poolSelect.value;
+                const outcome = outcomeSelect.value;
+                const stake = parseInt(stakeInput.value, 10);
+                if (!poolId || !outcome || isNaN(stake) || stake <= 0) return;
+
+                bets.push({
+                    poolId,
+                    outcome,
+                    stake,
+                    time: Date.now()
+                });
+                saveBets(bets);
+                updateUI();
+
+                // Сброс формы
+                poolSelect.value = '';
+                outcomeSelect.innerHTML = '<option value="">-- Сначала выберите категорию --</option>';
+                outcomeSelect.disabled = true;
+                stakeInput.value = '';
+                stakeInput.disabled = true;
+                placeBetBtn.disabled = true;
+            });
+
+            // Первоначальная отрисовка
+            updateUI();
+        })();
     </script>
 </body>
 </html>
