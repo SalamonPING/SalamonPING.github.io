@@ -49,9 +49,9 @@
     <div id="message"></div>
 
     <script>
-      	const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqJiAhi7cO872V21zrAp1ug8hG8IBeAIslUUcr2NrS0uiJ7wXCNXB6zYxbAoo5Zy_UNw/exec';
-	const API_URL = 'https://corsproxy.io/?' + encodeURIComponent(SCRIPT_URL);
-
+      	const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqJiAhi7cO872V21zrAp1ug8hG8IBeAIslUUcr2NrS0uiJ7wXCNXB6zYxbAoo5Zy_UNw/exec'; // ваш URL
+	const PROXY = 'https://cors-anywhere.herokuapp.com/';
+	const API_URL = PROXY + SCRIPT_URL;
         let userId = localStorage.getItem('userId');
         if (!userId) {
             userId = 'user_' + Math.random().toString(36).substr(2, 8);
