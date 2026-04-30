@@ -1,94 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Тотализатор - тест</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тотализатор</title>
     <style>
-        body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; }
-        .outcome { display: inline-block; width: 200px; padding: 20px; margin: 10px; border: 1px solid #ccc; cursor: pointer; }
-        .selected { background: #cfc; }
-        button { padding: 10px 20px; margin-top: 20px; }
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        .outcome { display: inline-block; width: 45%; margin: 5px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .outcome.selected { background-color: #d1e7dd; border-color: #0f5132; }
+        .coeff { font-size: 24px; font-weight: bold; color: #0a58ca; }
+        .pool { font-size: 14px; color: #6c757d; }
+        input { padding: 8px; margin: 10px; width: 200px; }
+        button { padding: 10px 20px; background-color: #198754; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .error { color: red; margin-top: 10px; }
+        .success { color: green; }
+        #stats { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>Ставки на событие</h2>
+    <h1>⚽ Событие: Команда А vs Команда Б</h1>
+    <p>Маржа букмекера: <span id="marginValue">—</span>%</p>
+    
     <div>
-        <div id="btnA" class="outcome" data-outcome="A">Победа А <span id="coeffA">—</span><br>Банк: <span id="poolA">0</span></div>
-        <div id="btnB" class="outcome" data-outcome="B">Победа Б <span id="coeffB">—</span><br>Банк: <span id="poolB">0</span></div>
+        <div class="outcome" data-outcome="A">
+            <h2>Победа А</h2>
+            <div>Коэффициент: <span id="coeffA" class="coeff">—</span></div>
+            <div class="pool">Банк: <span id="poolA">0</span> ₽</div>
+        </div>
+        <div class="outcome" data-outcome="B">
+            <h2>Победа Б</h2>
+            <div>Коэффициент: <span id="coeffB" class="coeff">—</span></div>
+            <div class="pool">Банк: <span id="poolB">0</span> ₽</div>
+        </div>
     </div>
-    <div>
-        <input type="number" id="betAmount" placeholder="Сумма в рублях" value="100">
-        <button id="placeBet">Сделать ставку</button>
+    
+    <div style="margin-top: 20px;">
+        <label>Сумма ставки (₽): </label>
+        <input type="number" id="betAmount" min="1" step="1" value="100">
+        <br>
+        <button id="placeBetBtn">Сделать ставку</button>
+    </div>
+    
+    <div id="stats">
+        <h3>Статистика</h3>
+        <p>Общий банк: <span id="totalPool">0</span> ₽</p>
+        <p>Ваш текущий ID: <span id="userIdDisplay">—</span></p>
     </div>
     <div id="message"></div>
 
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxueIxTqg7YKZRTBaauvZbLIZJ996CBpFD9sQYR4bmE-ZBSLtOnrO1pq0xAG4oQ45xo/exec'; // ❗ЗАМЕНИТЕ❗
+        // ⬇️⬇️⬇️ ВСТАВЬТЕ ВАШ URL ОТ APPS SCRIPT ⬇️⬇️⬇️
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxLDqChd4m0P3jrlH2BUMuThJqLSlG9aB-Q_uPWF107zUifAsn2el8ErhCeRD92O8_f/exec';
 
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 8);
+            localStorage.setItem('userId', userId);
+        }
+        document.getElementById('userIdDisplay').innerText = userId;
+        
         let selectedOutcome = 'A';
-
-        document.getElementById('btnA').onclick = () => {
-            selectedOutcome = 'A';
-            document.getElementById('btnA').classList.add('selected');
-            document.getElementById('btnB').classList.remove('selected');
-        };
-        document.getElementById('btnB').onclick = () => {
-            selectedOutcome = 'B';
-            document.getElementById('btnB').classList.add('selected');
-            document.getElementById('btnA').classList.remove('selected');
-        };
-
+        document.querySelectorAll('.outcome').forEach(div => {
+            div.addEventListener('click', () => {
+                document.querySelectorAll('.outcome').forEach(d => d.classList.remove('selected'));
+                div.classList.add('selected');
+                selectedOutcome = div.dataset.outcome;
+            });
+        });
+        document.querySelector('.outcome[data-outcome="A"]').classList.add('selected');
+        
         async function loadState() {
             try {
                 const response = await fetch(API_URL);
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
-                document.getElementById('coeffA').innerText = data.coeffA;
-                document.getElementById('coeffB').innerText = data.coeffB;
-                document.getElementById('poolA').innerText = data.poolA;
-                document.getElementById('poolB').innerText = data.poolB;
+                if (!response.ok) throw new Error('Ошибка загрузки');
+                const state = await response.json();
+                document.getElementById('coeffA').innerText = state.coeffA;
+                document.getElementById('coeffB').innerText = state.coeffB;
+                document.getElementById('poolA').innerText = state.poolA;
+                document.getElementById('poolB').innerText = state.poolB;
+                document.getElementById('totalPool').innerText = state.total;
+                document.getElementById('marginValue').innerText = (state.margin || 10).toFixed(0);
             } catch (err) {
-                console.error('Ошибка загрузки:', err);
-                document.getElementById('message').innerHTML = '<span style="color:red">Ошибка соединения с сервером</span>';
+                console.error(err);
+                document.getElementById('message').innerHTML = '<span class="error">Ошибка соединения с сервером</span>';
             }
         }
-
+        
         async function placeBet() {
             const amount = parseFloat(document.getElementById('betAmount').value);
             if (isNaN(amount) || amount <= 0) {
-                alert('Введите корректную сумму');
+                alert('Введите сумму больше 0');
                 return;
             }
-            let userId = localStorage.getItem('userId');
-            if (!userId) {
-                userId = 'user_' + Math.random().toString(36).substr(2, 8);
-                localStorage.setItem('userId', userId);
-            }
-
+            const url = `${API_URL}?userId=${encodeURIComponent(userId)}&outcome=${selectedOutcome}&betAmount=${amount}`;
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: userId,
-                        outcome: selectedOutcome,
-                        betAmount: amount
-                    })
-                });
-                const result = await response.json();
+                const resp = await fetch(url);
+                const result = await resp.json();
                 if (result.success) {
-                    alert('✅ Ставка принята! Коэффициент: ' + (selectedOutcome === 'A' ? result.state.coeffA : result.state.coeffB));
-                    loadState(); // обновляем данные
+                    alert(`✅ Ставка ${amount}₽ на исход ${selectedOutcome} принята! Коэффициент: ${selectedOutcome === 'A' ? result.state.coeffA : result.state.coeffB}`);
+                    loadState();
                 } else {
-                    alert('❌ Ошибка: ' + result.error);
+                    alert('❌ Ошибка: ' + (result.error || 'неизвестная'));
                 }
             } catch (err) {
-                console.error('Ошибка при отправке ставки:', err);
+                console.error('placeBet error:', err);
                 alert('Не удалось отправить ставку. Проверьте консоль (F12)');
             }
         }
 
-        document.getElementById('placeBet').onclick = placeBet;
+        document.getElementById('placeBetBtn').addEventListener('click', placeBet);
         loadState();
         setInterval(loadState, 5000);
     </script>
