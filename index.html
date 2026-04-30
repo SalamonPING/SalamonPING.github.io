@@ -48,7 +48,7 @@
     </div>
 
     <div class="pools-container" id="poolsContainer">
-        <!-- Динамически заполняется из JavaScript -->
+        <!-- Динамически заполняется -->
     </div>
 
     <div class="submit-area">
@@ -72,9 +72,10 @@
     </div>
 
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbw-rYNvwvFEAzh94YKot1YtvmZADbr0uij5w7ym1noNXMUhQ29en_8Dq4k_VxUtAa98/exec';
+        // ⚠️ Вставьте актуальный URL вашего веб-приложения
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwIXdfJg2v-GqYd0ayMuwC2F2hrJPy34lZHxALBrSztKzCTesctGE7QOviAuVkRxjFV/exec';
 
-        // Конфигурация пулов и исходов (должна совпадать с Apps Script)
+        // Конфигурация пулов
         const POOLS = [
             {
                 id: 'appears',
@@ -101,16 +102,14 @@
             }
         ];
 
-        // Текущие коэффициенты (обновляются с сервера)
-        let currentCoefficients = []; // массив { poolId, outcome, coefficient, sum }
+        let currentCoefficients = [];
         let allBets = [];
 
-        // Инициализация интерфейса
         function buildPools() {
             const container = document.getElementById('poolsContainer');
             container.innerHTML = POOLS.map(pool => {
                 const outcomesHtml = pool.outcomes.map(outcome => `
-                    <div class="outcome-item" data-pool="${pool.id}" data-outcome="${outcome}">
+                    <div class="outcome-item">
                         <div class="outcome-name">
                             <span>${outcome}</span>
                             <span class="coeff-badge coeff-value" id="coeff-${pool.id}-${outcome.replace(/\s/g,'_')}">—</span>
@@ -126,7 +125,6 @@
                 `;
             }).join('');
 
-            // Привязываем события ко всем полям ввода
             document.querySelectorAll('.stake-input').forEach(input => {
                 input.addEventListener('input', updateTotalAndButton);
             });
@@ -134,20 +132,17 @@
 
         function updateCoefficientDisplay() {
             currentCoefficients.forEach(c => {
-                const outcomeSafe = c.outcome.replace(/\s/g, '_');
-                const el = document.getElementById(`coeff-${c.poolId}-${outcomeSafe}`);
+                const el = document.getElementById(`coeff-${c.poolId}-${c.outcome.replace(/\s/g,'_')}`);
                 if (el) {
                     el.textContent = c.coefficient !== null ? c.coefficient.toFixed(2) : '—';
                 }
             });
-            // Для исходов, которых ещё нет в currentCoefficients, оставляем "—"
         }
 
         function updateTotalAndButton() {
-            const inputs = document.querySelectorAll('.stake-input');
             let total = 0;
             let hasPositive = false;
-            inputs.forEach(inp => {
+            document.querySelectorAll('.stake-input').forEach(inp => {
                 const val = parseInt(inp.value, 10);
                 if (!isNaN(val) && val > 0) {
                     total += val;
@@ -158,7 +153,6 @@
             document.getElementById('placeBetBtn').disabled = !hasPositive;
         }
 
-        // Загрузка данных с сервера (ставки и коэффициенты)
         async function fetchData() {
             try {
                 const resp = await fetch(API_URL + '?action=getBets');
@@ -198,7 +192,6 @@
             return div.innerHTML;
         }
 
-        // Отправка всех ставок
         document.getElementById('placeBetBtn').addEventListener('click', async () => {
             const inputs = document.querySelectorAll('.stake-input');
             const betsToSend = [];
@@ -217,24 +210,21 @@
             const userName = document.getElementById('userName').value.trim() || 'Аноним';
             const betStatus = document.getElementById('betStatus');
             betStatus.textContent = '⏳ Отправка...';
-            betStatus.style.color = '#ffc107';
+            betStatus.style.color = '#f0ad4e';
+
+            // Передаём данные через URLSearchParams (без JSON)
+            const params = new URLSearchParams();
+            params.append('action', 'addBets');
+            params.append('userName', userName);
+            params.append('bets', JSON.stringify(betsToSend));  // массив как строка
 
             try {
-                const resp = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'addBets',
-                        userName: userName,
-                        bets: betsToSend
-                    })
-                });
+                const resp = await fetch(API_URL, { method: 'POST', body: params });
                 const data = await resp.json();
                 if (data.success) {
                     betStatus.textContent = '✅ Ставки приняты!';
                     betStatus.style.color = '#28a745';
-                    // Очистить все поля ввода
-                    inputs.forEach(inp => inp.value = '');
+                    document.querySelectorAll('.stake-input').forEach(inp => inp.value = '');
                     document.getElementById('userName').value = '';
                     updateTotalAndButton();
                     await fetchData();
@@ -249,18 +239,15 @@
             setTimeout(() => { betStatus.textContent = ''; }, 4000);
         });
 
-        // Обновить вручную
         document.getElementById('refreshBtn').addEventListener('click', fetchData);
 
-        // Очистка всех ставок (админ)
         document.getElementById('clearBetsBtn').addEventListener('click', async () => {
             if (!confirm('Удалить ВСЕ ставки из таблицы?')) return;
+            const params = new URLSearchParams();
+            params.append('action', 'clearBets');
+
             try {
-                const resp = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'clearBets' })
-                });
+                const resp = await fetch(API_URL, { method: 'POST', body: params });
                 const data = await resp.json();
                 if (data.success) {
                     await fetchData();
@@ -275,7 +262,7 @@
         // Старт
         buildPools();
         fetchData();
-        setInterval(fetchData, 15000); // автообновление каждые 15 сек
+        setInterval(fetchData, 15000);
     </script>
 </body>
 </html>
