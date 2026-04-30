@@ -1,61 +1,96 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Тотализатор</title>
+    <title>Тотализатор - тест</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: auto; }
-        .outcome { border: 1px solid #ccc; padding: 16px; margin: 8px; cursor: pointer; }
-        .selected { background: #cfe4ff; }
+        body { font-family: Arial; max-width: 600px; margin: 20px auto; padding: 20px; }
+        .outcome { display: inline-block; width: 200px; padding: 20px; margin: 10px; border: 1px solid #ccc; cursor: pointer; }
+        .selected { background: #cfc; }
+        button { padding: 10px 20px; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Ставки на событие</h1>
+    <h2>Ставки на событие</h2>
     <div>
-        <div class="outcome" data-outcome="A">Победа А — коэф. <span id="coeffA">—</span><br>Банк: <span id="poolA">0</span></div>
-        <div class="outcome" data-outcome="B">Победа Б — коэф. <span id="coeffB">—</span><br>Банк: <span id="poolB">0</span></div>
+        <div id="btnA" class="outcome" data-outcome="A">Победа А <span id="coeffA">—</span><br>Банк: <span id="poolA">0</span></div>
+        <div id="btnB" class="outcome" data-outcome="B">Победа Б <span id="coeffB">—</span><br>Банк: <span id="poolB">0</span></div>
     </div>
-    <input type="number" id="betAmount" placeholder="Сумма ставки">
-    <button id="placeBet">Сделать ставку</button>
+    <div>
+        <input type="number" id="betAmount" placeholder="Сумма в рублях" value="100">
+        <button id="placeBet">Сделать ставку</button>
+    </div>
     <div id="message"></div>
 
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwijged2Ox4ThFxD2w7Vme3NcyWK1ztIeuCB684puuJiEQT9Ar5v2nhAFCbUjpgxzfY/exec';
-        let selected = 'A';
-        document.querySelectorAll('.outcome').forEach(div => {
-            div.onclick = () => {
-                document.querySelectorAll('.outcome').forEach(d => d.classList.remove('selected'));
-                div.classList.add('selected');
-                selected = div.dataset.outcome;
-            };
-        });
-        async function load() {
-            const res = await fetch(API_URL);
-            const data = await res.json();
-            document.getElementById('coeffA').innerText = data.coeffA;
-            document.getElementById('coeffB').innerText = data.coeffB;
-            document.getElementById('poolA').innerText = data.poolA;
-            document.getElementById('poolB').innerText = data.poolB;
-        }
-        document.getElementById('placeBet').onclick = async () => {
-            const amount = parseFloat(document.getElementById('betAmount').value);
-            if (!amount || amount <= 0) return alert('Введите сумму');
-            const userId = localStorage.getItem('userId') || (() => { let id = 'user_' + Math.random(); localStorage.setItem('userId', id); return id; })();
-            const res = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, outcome: selected, betAmount: amount })
-            });
-            const result = await res.json();
-            if (result.success) {
-                alert('Ставка принята! Коэф: ' + (selected === 'A' ? result.state.coeffA : result.state.coeffB));
-                load();
-            } else {
-                alert('Ошибка: ' + result.error);
-            }
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwijged2Ox4ThFxD2w7Vme3NcyWK1ztIeuCB684puuJiEQT9Ar5v2nhAFCbUjpgxzfY/exec'; // ❗ЗАМЕНИТЕ❗
+
+        let selectedOutcome = 'A';
+
+        document.getElementById('btnA').onclick = () => {
+            selectedOutcome = 'A';
+            document.getElementById('btnA').classList.add('selected');
+            document.getElementById('btnB').classList.remove('selected');
         };
-        load();
-        setInterval(load, 5000);
+        document.getElementById('btnB').onclick = () => {
+            selectedOutcome = 'B';
+            document.getElementById('btnB').classList.add('selected');
+            document.getElementById('btnA').classList.remove('selected');
+        };
+
+        async function loadState() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+                document.getElementById('coeffA').innerText = data.coeffA;
+                document.getElementById('coeffB').innerText = data.coeffB;
+                document.getElementById('poolA').innerText = data.poolA;
+                document.getElementById('poolB').innerText = data.poolB;
+            } catch (err) {
+                console.error('Ошибка загрузки:', err);
+                document.getElementById('message').innerHTML = '<span style="color:red">Ошибка соединения с сервером</span>';
+            }
+        }
+
+        async function placeBet() {
+            const amount = parseFloat(document.getElementById('betAmount').value);
+            if (isNaN(amount) || amount <= 0) {
+                alert('Введите корректную сумму');
+                return;
+            }
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = 'user_' + Math.random().toString(36).substr(2, 8);
+                localStorage.setItem('userId', userId);
+            }
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: userId,
+                        outcome: selectedOutcome,
+                        betAmount: amount
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('✅ Ставка принята! Коэффициент: ' + (selectedOutcome === 'A' ? result.state.coeffA : result.state.coeffB));
+                    loadState(); // обновляем данные
+                } else {
+                    alert('❌ Ошибка: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Ошибка при отправке ставки:', err);
+                alert('Не удалось отправить ставку. Проверьте консоль (F12)');
+            }
+        }
+
+        document.getElementById('placeBet').onclick = placeBet;
+        loadState();
+        setInterval(loadState, 5000);
     </script>
 </body>
 </html>
