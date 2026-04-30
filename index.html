@@ -49,8 +49,8 @@
     <div id="message"></div>
 
     <script>
-        // ⬇️⬇️⬇️ ВСТАВЬТЕ ВАШ URL ОТ APPS SCRIPT ⬇️⬇️⬇️
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxLDqChd4m0P3jrlH2BUMuThJqLSlG9aB-Q_uPWF107zUifAsn2el8ErhCeRD92O8_f/exec';
+      	const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwqJiAhi7cO872V21zrAp1ug8hG8IBeAIslUUcr2NrS0uiJ7wXCNXB6zYxbAoo5Zy_UNw/exec';
+	const API_URL = 'https://corsproxy.io/?' + encodeURIComponent(SCRIPT_URL);
 
         let userId = localStorage.getItem('userId');
         if (!userId) {
