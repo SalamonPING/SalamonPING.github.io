@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Тотализатор — Общий банк (Google Sheets)</title>
+    <title>Тотализатор на Дениса</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; }
         h1, h2 { color: #333; }
@@ -28,7 +28,7 @@
     <h1>🏆 Тотализатор</h1>
 
     <div class="event">
-        <h2>📅 Финал ЧМ-2026: Денич VS ...</h2>
+        <h2>📅 Денис объявится?</h2>
         <div class="form-group">
             <label for="userName">Ваше имя</label>
             <input type="text" id="userName" placeholder="Аноним">
@@ -37,8 +37,6 @@
             <label for="poolSelect">Категория</label>
             <select id="poolSelect">
                 <option value="">-- Выберите --</option>
-                <option value="match_result">Исход матча</option>
-                <option value="exact_score">Точный счёт</option>
             </select>
         </div>
         <div class="form-group">
@@ -72,19 +70,23 @@
         <div id="betsContainer" style="margin-top:0.5rem;">Загрузка...</div>
     </div>
 
-    <!-- Замените на свой URL веб-приложения -->
     <script>
+        // Твой URL веб-приложения Google Apps Script
         const API_URL = 'https://script.google.com/macros/s/AKfycbwIXdfJg2v-GqYd0ayMuwC2F2hrJPy34lZHxALBrSztKzCTesctGE7QOviAuVkRxjFV/exec';
         
-        // Исходы по пулам (должны совпадать со скриптом)
+        // Конфигурация всех пулов и исходов (должна совпадать со скриптом Google)
         const POOLS = {
-            match_result: {
-                name: 'Исход матча',
-                outcomes: ['Победа Бразилии', 'Ничья', 'Победа Аргентины']
+            appears: {
+                name: 'Объявится или нет',
+                outcomes: ['Объявится', 'Не объявится']
             },
-            exact_score: {
-                name: 'Точный счёт',
-                outcomes: ['1:0', '2:0', '2:1', '0:0', '1:1', '0:1', '0:2', '1:2', 'другой']
+            if_appears: {
+                name: 'Если объявится',
+                outcomes: ['Начудит', 'Не начудит']
+            },
+            if_mischief: {
+                name: 'Если начудит',
+                outcomes: ['Устроит перформанс', 'Пранканёт стримера', 'Скажет коронную фразу', 'Выйдет в эфир пьяным', 'Споёт гимн', 'Станет мемом', 'Затроллит админа']
             }
         };
 
@@ -103,11 +105,21 @@
 
         let allBets = [];
         let currentCoefficients = [];
-
-        // Блокировка повторной отправки
         let isSubmitting = false;
 
-        // Зависимые списки
+        // Заполняем список категорий из POOLS
+        function populatePoolSelect() {
+            poolSelect.innerHTML = '<option value="">-- Выберите --</option>';
+            Object.keys(POOLS).forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = POOLS[key].name;
+                poolSelect.appendChild(opt);
+            });
+        }
+        populatePoolSelect();
+
+        // Обновление списка исходов при смене категории
         poolSelect.addEventListener('change', () => {
             const poolId = poolSelect.value;
             outcomeSelect.innerHTML = '<option value="">-- Выберите исход --</option>';
@@ -134,7 +146,7 @@
             placeBtn.disabled = !ok || isSubmitting;
         }
 
-        // Функция получения данных от сервера
+        // Получение данных с сервера
         async function fetchData() {
             try {
                 const resp = await fetch(API_URL + '?action=getBets');
@@ -171,7 +183,7 @@
                 betsContainer.innerHTML = 'Ставок пока нет.';
                 return;
             }
-            betsContainer.innerHTML = allBets.map((bet, idx) => `
+            betsContainer.innerHTML = allBets.map(bet => `
                 <div class="bet-item">
                     <span>
                         <strong>${escapeHtml(bet.userName)}</strong> 
@@ -189,7 +201,7 @@
             return div.innerHTML;
         }
 
-        // Добавление ставки
+        // Отправка ставки
         placeBtn.addEventListener('click', async () => {
             if (isSubmitting) return;
             const poolId = poolSelect.value;
@@ -215,14 +227,12 @@
                 const data = await resp.json();
                 if (data.success) {
                     betStatus.textContent = '✅ Ставка принята!';
-                    // Сброс формы
                     poolSelect.value = '';
                     outcomeSelect.innerHTML = '<option value="">-- Сначала категорию --</option>';
                     outcomeSelect.disabled = true;
                     stakeInput.value = '';
                     stakeInput.disabled = true;
                     userNameInput.value = '';
-                    // Обновить данные
                     await fetchData();
                 } else {
                     betStatus.textContent = '❌ Ошибка: ' + (data.error || 'неизвестно');
@@ -236,10 +246,7 @@
             }
         });
 
-        // Обновление списка
         document.getElementById('refreshBtn').addEventListener('click', fetchData);
-
-        // Очистка всех ставок (осторожно!)
         document.getElementById('clearBetsBtn').addEventListener('click', async () => {
             if (!confirm('Удалить ВСЕ ставки из таблицы? Это необратимо.')) return;
             const formData = new URLSearchParams();
@@ -257,9 +264,7 @@
             }
         });
 
-        // Первичная загрузка
         fetchData();
-        // Периодическое обновление каждые 15 секунд
         setInterval(fetchData, 15000);
     </script>
 </body>
