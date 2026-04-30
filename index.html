@@ -1,169 +1,153 @@
-// НАСТРОЙКИ
-const SPREADSHEET_ID = 'ваш_ид_таблицы'; // ВСТАВЬТЕ ID ВАШЕЙ ТАБЛИЦЫ
-const SHEET_NAME = 'Data';
-const SETTINGS_SHEET = 'Settings';
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тотализатор: Событие X</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        .outcome { display: inline-block; width: 45%; margin: 5px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; text-align: center; cursor: pointer; transition: 0.2s; }
+        .outcome.selected { background-color: #d1e7dd; border-color: #0f5132; }
+        .coeff { font-size: 24px; font-weight: bold; color: #0a58ca; }
+        .pool { font-size: 14px; color: #6c757d; }
+        input { padding: 8px; margin: 10px; width: 200px; }
+        button { padding: 10px 20px; background-color: #198754; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .error { color: red; margin-top: 10px; }
+        .success { color: green; }
+        #stats { margin-top: 30px; border-top: 1px solid #ccc; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>⚽ Событие: Команда А vs Команда Б</h1>
+    <p>Маржа букмекера: <span id="marginValue">—</span>%</p>
+    
+    <div>
+        <div class="outcome" data-outcome="A">
+            <h2>Победа А</h2>
+            <div>Коэффициент: <span id="coeffA" class="coeff">—</span></div>
+            <div class="pool">Банк: <span id="poolA">0</span> ₽</div>
+        </div>
+        <div class="outcome" data-outcome="B">
+            <h2>Победа Б</h2>
+            <div>Коэффициент: <span id="coeffB" class="coeff">—</span></div>
+            <div class="pool">Банк: <span id="poolB">0</span> ₽</div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <label>Сумма ставки (₽): </label>
+        <input type="number" id="betAmount" min="1" step="1" value="100">
+        <br>
+        <button id="placeBetBtn">Сделать ставку</button>
+    </div>
+    
+    <div id="stats">
+        <h3>Статистика</h3>
+        <p>Общий банк: <span id="totalPool">0</span> ₽</p>
+        <p>Ваш текущий ID: <span id="userIdDisplay">—</span></p>
+    </div>
+    <div id="message"></div>
 
-// ОБРАБОТКА GET-ЗАПРОСОВ (получение текущего состояния)
-function doGet(e) {
-  try {
-    const state = getState();
-    return ContentService.createTextOutput(JSON.stringify(state))
-      .setMimeType(ContentService.MimeType.JSON)
-      .addHeader("Access-Control-Allow-Origin", "*")
-      .addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-      .addHeader("Access-Control-Allow-Headers", "Content-Type");
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .addHeader("Access-Control-Allow-Origin", "*");
-  }
-}
-
-// ОБРАБОТКА POST-ЗАПРОСОВ (приём новой ставки)
-function doPost(e) {
-  try {
-    // Обработка preflight (OPTIONS) запроса
-    if (e.method === 'OPTIONS') {
-      return ContentService.createTextOutput('')
-        .setMimeType(ContentService.MimeType.TEXT)
-        .addHeader("Access-Control-Allow-Origin", "*")
-        .addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        .addHeader("Access-Control-Allow-Headers", "Content-Type");
-    }
-    
-    // Парсим данные из запроса
-    const data = JSON.parse(e.postData.contents);
-    const userId = data.userId;
-    const outcome = data.outcome;      // "A" или "B"
-    const betAmount = parseFloat(data.betAmount);
-    
-    // Валидация
-    if (!["A","B"].includes(outcome)) {
-      throw new Error("Неверный исход. Используйте A или B");
-    }
-    if (isNaN(betAmount) || betAmount <= 0) {
-      throw new Error("Сумма ставки должна быть положительным числом");
-    }
-    
-    // Получаем текущее состояние (чтобы узнать коэффициент для этой ставки)
-    const stateBefore = getState();
-    let coeffAtBet;
-    if (outcome === "A") {
-      coeffAtBet = stateBefore.coeffA;
-    } else {
-      coeffAtBet = stateBefore.coeffB;
-    }
-    
-    // Записываем ставку в таблицу
-    const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-    sheet.appendRow([
-      new Date(),           // timestamp
-      userId,               // user_id
-      outcome,              // outcome
-      betAmount,            // bet_amount
-      coeffAtBet            // coefficient_at_bet (сохраняем кэф момента ставки)
-    ]);
-    
-    // Получаем обновлённое состояние после записи
-    const stateAfter = getState();
-    
-    // Возвращаем успешный ответ
-    const response = {
-      success: true,
-      message: `Ставка ${betAmount}₽ на исход ${outcome} принята. Коэффициент: ${coeffAtBet}`,
-      state: stateAfter,
-      yourBet: {
-        outcome: outcome,
-        amount: betAmount,
-        coefficient: coeffAtBet,
-        potentialWin: betAmount * coeffAtBet
-      }
-    };
-    
-    return ContentService.createTextOutput(JSON.stringify(response))
-      .setMimeType(ContentService.MimeType.JSON)
-      .addHeader("Access-Control-Allow-Origin", "*")
-      .addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-      .addHeader("Access-Control-Allow-Headers", "Content-Type");
-      
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ 
-      success: false, 
-      error: err.message 
-    }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .addHeader("Access-Control-Allow-Origin", "*");
-  }
-}
-
-// ПОЛУЧЕНИЕ ТЕКУЩЕГО СОСТОЯНИЯ (суммы ставок и коэффициенты)
-function getState() {
-  // Открываем таблицу и лист с данными
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(SHEET_NAME);
-  const data = sheet.getDataRange().getValues();
-  
-  // Считаем суммы ставок на исходы А и Б
-  let sumA = 0;
-  let sumB = 0;
-  
-  // Пропускаем заголовок (первая строка)
-  for (let i = 1; i < data.length; i++) {
-    const outcome = data[i][2];  // колонка C (индекс 2)
-    const amount = parseFloat(data[i][3]); // колонка D (индекс 3)
-    
-    if (outcome === "A") {
-      sumA += amount;
-    } else if (outcome === "B") {
-      sumB += amount;
-    }
-  }
-  
-  const total = sumA + sumB;
-  
-  // Читаем маржу из листа настроек (по умолчанию 10% = 0.1)
-  let margin = 0.1;
-  try {
-    const settingsSheet = ss.getSheetByName(SETTINGS_SHEET);
-    if (settingsSheet) {
-      const marginCell = settingsSheet.getRange("B1").getValue();
-      if (!isNaN(parseFloat(marginCell)) && marginCell !== "") {
-        margin = parseFloat(marginCell);
-      }
-    }
-  } catch(e) {
-    // Если листа настроек нет, используем маржу 0.1
-  }
-  
-  // Расчёт справедливых коэффициентов (без маржи)
-  let fairCoeffA = (total === 0 || sumA === 0) ? 1.0 : total / sumA;
-  let fairCoeffB = (total === 0 || sumB === 0) ? 1.0 : total / sumB;
-  
-  // Применяем маржу
-  let coeffA = fairCoeffA * (1 - margin);
-  let coeffB = fairCoeffB * (1 - margin);
-  
-  // Защита: коэффициент не может быть ниже 1.01 и выше 100
-  coeffA = Math.max(1.01, Math.min(100.0, coeffA));
-  coeffB = Math.max(1.01, Math.min(100.0, coeffB));
-  
-  // Округление до 2 знаков после запятой
-  coeffA = Math.round(coeffA * 100) / 100;
-  coeffB = Math.round(coeffB * 100) / 100;
-  
-  // Возвращаем объект с состоянием
-  return {
-    total: total,
-    poolA: sumA,
-    poolB: sumB,
-    coeffA: coeffA,
-    coeffB: coeffB,
-    margin: margin * 100,  // возвращаем в процентах для отображения
-    timestamp: new Date().toISOString()
-  };
-}
-
-// Функция для тестирования (можно запустить в редакторе)
-function test() {
-  console.log(getState());
-}
+    <script>
+        // --- Конфигурация ---
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyFy_0Y6RWaKARrMnxm1VyRnGCtysa3v-87sf7lWcW1cha6QGq-VULSBby2sFRtz5Bp/exec'; // замените на ваш!
+        
+        // Генерация/чтение userId в localStorage (чтобы отслеживать ставки одного игрока)
+        let userId = localStorage.getItem('userId');
+        if (!userId) {
+            userId = 'user_' + Math.random().toString(36).substr(2, 8);
+            localStorage.setItem('userId', userId);
+        }
+        document.getElementById('userIdDisplay').innerText = userId;
+        
+        let selectedOutcome = null; // 'A' или 'B'
+        
+        // Выбор исхода
+        document.querySelectorAll('.outcome').forEach(div => {
+            div.addEventListener('click', () => {
+                document.querySelectorAll('.outcome').forEach(d => d.classList.remove('selected'));
+                div.classList.add('selected');
+                selectedOutcome = div.dataset.outcome;
+            });
+        });
+        
+        // Функция загрузки текущего состояния с сервера (GET)
+        async function loadState() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Ошибка загрузки');
+                const state = await response.json();
+                // Обновляем UI
+                document.getElementById('coeffA').innerText = state.coeffA;
+                document.getElementById('coeffB').innerText = state.coeffB;
+                document.getElementById('poolA').innerText = state.poolA;
+                document.getElementById('poolB').innerText = state.poolB;
+                document.getElementById('totalPool').innerText = state.total;
+                document.getElementById('marginValue').innerText = (state.margin * 100).toFixed(0);
+                return state;
+            } catch (err) {
+                showMessage('Не удалось загрузить коэффициенты: ' + err.message, 'error');
+            }
+        }
+        
+        // Отправка ставки (POST)
+        async function placeBet() {
+            if (!selectedOutcome) {
+                showMessage('Выберите исход (А или Б)', 'error');
+                return;
+            }
+            const amount = parseFloat(document.getElementById('betAmount').value);
+            if (isNaN(amount) || amount <= 0) {
+                showMessage('Введите корректную сумму (>0)', 'error');
+                return;
+            }
+            
+            const payload = {
+                userId: userId,
+                outcome: selectedOutcome,
+                betAmount: amount
+            };
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(`Ставка ${amount}₽ на исход ${selectedOutcome} принята. Коэффициент на момент ставки: ${selectedOutcome === 'A' ? result.state.coeffA : result.state.coeffB}`, 'success');
+                    // Обновляем состояние на экране
+                    updateUIFromState(result.state);
+                } else {
+                    showMessage('Ошибка: ' + result.error, 'error');
+                }
+            } catch (err) {
+                showMessage('Ошибка соединения: ' + err.message, 'error');
+            }
+        }
+        
+        function updateUIFromState(state) {
+            document.getElementById('coeffA').innerText = state.coeffA;
+            document.getElementById('coeffB').innerText = state.coeffB;
+            document.getElementById('poolA').innerText = state.poolA;
+            document.getElementById('poolB').innerText = state.poolB;
+            document.getElementById('totalPool').innerText = state.total;
+        }
+        
+        function showMessage(msg, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.innerHTML = `<div class="${type}">${msg}</div>`;
+            setTimeout(() => { msgDiv.innerHTML = ''; }, 5000);
+        }
+        
+        // Привязываем события
+        document.getElementById('placeBetBtn').addEventListener('click', placeBet);
+        
+        // Загружаем состояние каждые 3 секунды (в реальном времени)
+        loadState();
+        setInterval(loadState, 3000);
+    </script>
+</body>
+</html>
