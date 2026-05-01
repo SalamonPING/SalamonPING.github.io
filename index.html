@@ -36,6 +36,7 @@
         .bet-row { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #eee; }
         .bet-row:last-child { border-bottom: none; }
         .status { margin-left: 1rem; font-weight: 500; }
+        .small { font-size: 0.85rem; color: #666; }
     </style>
 </head>
 <body>
@@ -48,7 +49,7 @@
     </div>
 
     <div class="pools-container" id="poolsContainer">
-        <!-- Динамически заполняется -->
+        <!-- Заполняется динамически -->
     </div>
 
     <div class="submit-area">
@@ -57,7 +58,7 @@
             <span class="total-sum" id="totalStakeDisplay">0</span> руб.
         </div>
         <div>
-            <button class="btn btn-outline" id="refreshBtn">🔄 Обновить коэфф.</button>
+            <button class="btn btn-outline" id="refreshBtn">🔄 Обновить</button>
             <button class="btn btn-primary" id="placeBetBtn" disabled>📤 Отправить все ставки</button>
         </div>
         <span id="betStatus" class="status"></span>
@@ -72,10 +73,10 @@
     </div>
 
     <script>
-        // ⚠️ Вставьте актуальный URL вашего веб-приложения
-        const API_URL = 'https://script.google.com/macros/s/AKfycbyqllCO_Istqz0846w9injbKS7waR15xkhyeUjcNv9IB-Vt7f-f-SlHfR-jg0Ps32IA/exec';
+        // Ваш URL веб-приложения Google Apps Script
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzM50EX1EgGHFEOmMdgCKf_fInOEb5KJCzrvo6x6FeT5irfgLw3lYUt0kUXr8UhCXHe/exec';
 
-        // Конфигурация пулов
+        // Конфигурация пулов (без коэффициентов — они будут приходить с сервера)
         const POOLS = [
             {
                 id: 'appears',
@@ -102,9 +103,10 @@
             }
         ];
 
-        let currentCoefficients = [];
+        let currentCoefficients = []; // массив { poolId, outcome, coefficient }
         let allBets = [];
 
+        // Построение интерфейса
         function buildPools() {
             const container = document.getElementById('poolsContainer');
             container.innerHTML = POOLS.map(pool => {
@@ -112,9 +114,10 @@
                     <div class="outcome-item">
                         <div class="outcome-name">
                             <span>${outcome}</span>
-                            <span class="coeff-badge coeff-value" id="coeff-${pool.id}-${outcome.replace(/\s/g,'_')}">—</span>
+                            <span class="coeff-badge" id="coeff-${pool.id}-${outcome.replace(/\s/g,'_')}">—</span>
                         </div>
-                        <input type="number" class="stake-input" placeholder="Сумма" min="0" step="1" data-pool="${pool.id}" data-outcome="${outcome}">
+                        <input type="number" class="stake-input" placeholder="Сумма" min="0" step="1" 
+                               data-pool="${pool.id}" data-outcome="${outcome}">
                     </div>
                 `).join('');
                 return `
@@ -127,15 +130,6 @@
 
             document.querySelectorAll('.stake-input').forEach(input => {
                 input.addEventListener('input', updateTotalAndButton);
-            });
-        }
-
-        function updateCoefficientDisplay() {
-            currentCoefficients.forEach(c => {
-                const el = document.getElementById(`coeff-${c.poolId}-${c.outcome.replace(/\s/g,'_')}`);
-                if (el) {
-                    el.textContent = c.coefficient !== null ? c.coefficient.toFixed(2) : '—';
-                }
             });
         }
 
@@ -153,6 +147,17 @@
             document.getElementById('placeBetBtn').disabled = !hasPositive;
         }
 
+        // Обновление отображения коэффициентов
+        function updateCoefficientDisplay() {
+            currentCoefficients.forEach(c => {
+                const el = document.getElementById(`coeff-${c.poolId}-${c.outcome.replace(/\s/g,'_')}`);
+                if (el) {
+                    el.textContent = c.coefficient !== null ? c.coefficient.toFixed(2) : '—';
+                }
+            });
+        }
+
+        // Загрузка ставок и коэффициентов с сервера
         async function fetchData() {
             try {
                 const resp = await fetch(API_URL + '?action=getBets');
@@ -162,6 +167,7 @@
                     currentCoefficients = data.coefficients;
                     updateCoefficientDisplay();
                     renderBetsHistory();
+                    // Покажем общий банк и маржу, если нужно (по желанию)
                 }
             } catch (err) {
                 console.error(err);
@@ -192,6 +198,7 @@
             return div.innerHTML;
         }
 
+        // Отправка ставок
         document.getElementById('placeBetBtn').addEventListener('click', async () => {
             const inputs = document.querySelectorAll('.stake-input');
             const betsToSend = [];
@@ -212,11 +219,10 @@
             betStatus.textContent = '⏳ Отправка...';
             betStatus.style.color = '#f0ad4e';
 
-            // Передаём данные через URLSearchParams (без JSON)
             const params = new URLSearchParams();
             params.append('action', 'addBets');
             params.append('userName', userName);
-            params.append('bets', JSON.stringify(betsToSend));  // массив как строка
+            params.append('bets', JSON.stringify(betsToSend));
 
             try {
                 const resp = await fetch(API_URL, { method: 'POST', body: params });
@@ -227,7 +233,10 @@
                     document.querySelectorAll('.stake-input').forEach(inp => inp.value = '');
                     document.getElementById('userName').value = '';
                     updateTotalAndButton();
-                    await fetchData();
+                    // Сразу получаем обновлённые коэффициенты
+                    currentCoefficients = data.coefficients;
+                    updateCoefficientDisplay();
+                    await fetchBets(); // обновим историю ставок
                 } else {
                     betStatus.textContent = '❌ ' + (data.error || 'Ошибка');
                     betStatus.style.color = '#dc3545';
@@ -239,13 +248,14 @@
             setTimeout(() => { betStatus.textContent = ''; }, 4000);
         });
 
+        // Кнопка обновления
         document.getElementById('refreshBtn').addEventListener('click', fetchData);
 
+        // Очистка всех ставок
         document.getElementById('clearBetsBtn').addEventListener('click', async () => {
             if (!confirm('Удалить ВСЕ ставки из таблицы?')) return;
             const params = new URLSearchParams();
             params.append('action', 'clearBets');
-
             try {
                 const resp = await fetch(API_URL, { method: 'POST', body: params });
                 const data = await resp.json();
@@ -259,7 +269,7 @@
             }
         });
 
-        // Старт
+        // Первый запуск
         buildPools();
         fetchData();
         setInterval(fetchData, 15000);
